@@ -18,7 +18,9 @@ INITIAL_TRANS_PROB = 0
 
 def build_trans_matrix(words):
     """
-    builds a histogram of all word pairs
+    words - [string]
+
+    return [string], [[float]] - array of unique elements in words, transition matrix
     """
     total_words = len(words)
     unique_words = list(Set(words))
@@ -30,6 +32,7 @@ def build_trans_matrix(words):
 
 
     #iterate over word set and build matrix
+    #TODO don't include unattainable elements in a row of neighbors
     matrix = [[INITIAL_TRANS_PROB for _ in unique_words] for _ in unique_words]
 
     for r in range(len(matrix)):
@@ -49,6 +52,13 @@ def build_trans_matrix(words):
     return unique_words, matrix
 
 def get_next_pos(neighbors):
+    """
+    gets the index of the next element in Markov process
+
+    neighbors - [float]
+
+    return int
+    """
     prob = random.random()
     lb = 0
 
@@ -59,9 +69,18 @@ def get_next_pos(neighbors):
             if prob >= lb and prob <= ub:
                 return i
             lb += n
+
+    #fallback
     return int(math.floor(prob*len(neighbors)))
 
 def should_move(new, old):
+    """
+    new - float
+    old - float
+
+    return bool
+    """
+
     prob = random.random()
     next_prob = new/old
     return prob <= min(1.0, next_prob)
@@ -73,7 +92,7 @@ def generate_markov_chain(trans_matrix, words, iterations, stationary_prob):
     iterations - int
     stationary_prob - [int]
 
-    return [int]
+    return [int] - normalized Markov Chain output
     """
     mcmc_result = [INITIAL_STATIONARY_PROB for _ in words]
     pos = 0
@@ -90,7 +109,12 @@ def generate_markov_chain(trans_matrix, words, iterations, stationary_prob):
     return map(lambda x: x/total_appearances, mcmc_result)
 
 def get_generated_vs_data_error(mcmc_output, word_hist):
-    #accept when difference is 10% or less
+    """
+    mcmc_output - dict(string -> float)
+    word_hist - dict(string -> int)
+
+    return float - error between mcmc_output and word_hist
+    """
     subtracted = defaultdict(int)
 
     for key, value in mcmc_output.items():
@@ -99,12 +123,28 @@ def get_generated_vs_data_error(mcmc_output, word_hist):
     return math.sqrt(reduce(lambda a, b: a+b, map(lambda x: x**2, [v for _, v in subtracted.items()])))
 
 def get_normed_word_histogram(words):
+    """
+    words - [string] all elements in original text, which was split on space
+
+    return dict(string -> float) normed histogram of word occurences
+    """
     total_words = float(len(words))
     word_hist = Counter(words)
 
     return { k: float(v)/total_words for k, v in word_hist.items() }
 
 def solve_for_parameters(total_iterations, iterations_per_mcmc, data):
+    """
+    generates stationary probability vector, which corresponds to
+    appearance of each unique element in data
+
+    total_iterations - int
+    iterations_per_mcmc - int
+    data - string
+
+    return [string], [float]
+    """
+
     words = data.split()
     unique_words, matrix = build_trans_matrix(words)
     word_hist = get_normed_word_histogram(words)
