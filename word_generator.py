@@ -11,7 +11,7 @@ from collections import defaultdict, Counter
 from sets import Set
 import random
 import math
-from content import CONTENT
+
 
 INITIAL_STATIONARY_PROB = .001
 INITIAL_TRANS_PROB = 0
@@ -133,7 +133,7 @@ def get_normed_word_histogram(words):
 
     return { k: float(v)/total_words for k, v in word_hist.items() }
 
-def solve_for_parameters(total_iterations, iterations_per_mcmc, data):
+def solve_for_stationary_prob(total_iterations, iterations_per_mcmc, data):
     """
     generates stationary probability vector, which corresponds to
     appearance of each unique element in data
