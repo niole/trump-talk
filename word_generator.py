@@ -51,27 +51,92 @@ def build_trans_matrix(words):
 
     return unique_words, matrix
 
-def get_next_pos(neighbors):
+
+def generate_words(total_iterations, data, max_gram):
+    """
+    make stationary probabilty vector from histogram of word count
+    make 1-gram, 2-gram, and 3-gram transition matrices
+    """
+
+    words = get_words(data)
+    word_location_hash, unique_words, trans_matrices = build_trans_matrices(words, max_gram)
+    stationary_prob = get_stationary_probabilities(words, unique_words)
+    err = get_initial_error()
+    pos = 0
+
+    for _ in range(total_iterations):
+        next_pos = get_next_pos(map(lambda m: m[pos], trans_matrices))
+        if should_move(stationary_prob[next_pos], stationary_prob[pos]):
+            pos = next_pos
+            print unique_words[pos]
+
+    return
+
+def get_stationary_probabilities(words, unique_words):
+    """
+    gets the stationary probability vector that represents words
+    """
+
+    word_hist = get_normed_word_histogram(words)
+    return [word_hist[word] for word in unique_words]
+
+def build_trans_matrices(words, max_gram):
+    """
+    builds specified number of transition matrices
+    allows for zero transition probabilities
+    pads transition matrices with zeroes so that all are of same width
+
+    words - [string]
+    max_gram - int, upper bound 'n' for n-gram
+
+    return [string], [[[float]]] - array of unique elements in words, transition matrices
+    """
+    total_words = len(words)
+    unique_words = list(Set(words))
+    unique_words_hash = { unique_words[index]: index for index in range(len(unique_words)) }
+    transition_matrices = [0 for _ in range(max_gram)]
+
+    for n in range(1, max_gram+1):
+        #n is the look ahead number
+        next_trans_matrix = [[0.0 for _ in unique_words] for _ in unique_words]
+        for first_word in range(len(words)-n):
+            snd_word = first_word+n
+            row = unique_words_hash[words[first_word]]
+            col = unique_words_hash[words[snd_word]]
+            next_trans_matrix[row][col] += 1.0
+
+        #normalize and add to built matrices
+        for r in range(len(next_trans_matrix)):
+            total_prob = sum(next_trans_matrix[r])
+            for i in range(len(next_trans_matrix[r])):
+                prob = next_trans_matrix[r][i]
+                if prob > 0:
+                    next_trans_matrix[r][i] = next_trans_matrix[r][i]/total_prob
+        transition_matrices[n-1] = next_trans_matrix
+
+    return unique_words_hash, unique_words, transition_matrices
+
+def get_next_pos(neighborhoods):
     """
     gets the index of the next element in Markov process
-
-    neighbors - [float]
+    variadic function which contains neighbors from 1-infinity transition matrices
 
     return int
     """
     prob = random.random()
-    lb = 0
 
-    for i in range(len(neighbors)):
-        n = neighbors[i]
-        ub = lb+n
-        if (n > 0):
-            if prob >= lb and prob <= ub:
-                return i
-            lb += n
+    for neighbors in neighborhoods:
+        lb = 0
+        for i in range(len(neighbors)):
+            n = neighbors[i]
+            ub = lb+n
+            if (n > 0):
+                if prob >= lb and prob <= ub:
+                    return i
+                lb += n
 
     #fallback
-    return int(math.floor(prob*len(neighbors)))
+    return int(math.floor(prob*len(neighborhoods[0])))
 
 def should_move(new, old):
     """
@@ -98,7 +163,7 @@ def generate_markov_chain(trans_matrix, words, iterations, stationary_prob):
     pos = 0
 
     for _ in range(iterations):
-        next_pos = get_next_pos(trans_matrix[pos])
+        next_pos = get_next_pos([trans_matrix[pos]])
         if (should_move(stationary_prob[next_pos], stationary_prob[pos])):
             pos = next_pos
         mcmc_result[pos] += 1
@@ -133,6 +198,25 @@ def get_normed_word_histogram(words):
 
     return { k: float(v)/total_words for k, v in word_hist.items() }
 
+def get_words(data):
+    """
+    gets significant elements in data
+    """
+
+    return data.split()
+
+def get_initial_error():
+    """
+    gets initial error between two matrices
+    """
+    return float("inf")
+
+def get_word_location_hash(unique_words):
+    """
+    gets mapping from word to index in unique words array
+    """
+    return { index: unique_words[index] for index in range(len(unique_words)) }
+
 def solve_for_stationary_prob(total_iterations, iterations_per_mcmc, data):
     """
     generates stationary probability vector, which corresponds to
@@ -145,11 +229,11 @@ def solve_for_stationary_prob(total_iterations, iterations_per_mcmc, data):
     return [string], [float]
     """
 
-    words = data.split()
+    words = get_words(data)
     unique_words, matrix = build_trans_matrix(words)
     word_hist = get_normed_word_histogram(words)
-    word_location_hash = { index: unique_words[index] for index in range(len(unique_words)) }
-    err = float("inf")
+    word_location_hash = get_word_location_hash(unique_words)
+    err = get_initial_error()
     best_prob_dist = [1 for _ in range(len(data))]
 
     for _ in range(total_iterations):

@@ -9,5 +9,5 @@ def get_clean_data(tweets):
     return string
     """
 
-    return tweets.join(" ")
+    return " ".join(tweets)
 
